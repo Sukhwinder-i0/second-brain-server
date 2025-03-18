@@ -6,6 +6,8 @@ import bcrypt from 'bcrypt'
 import { ApiError } from './utlis/ApiError'
 import { ApiResponse } from './utlis/ApiResponse'
 import { Request, Response } from 'express'
+import jwt from 'jsonwebtoken'
+import { authMiddleware } from './middlewares/auth.middleware'
 
 
 dotenv.config({
@@ -67,11 +69,24 @@ app.post("/api/v1/signin", async (req: Request, res: Response): Promise<any> => 
         throw new ApiError(401, "Invalid credentials");
     }
 
-    
+    const token = jwt.sign(
+        { 
+            id: existedUser._id 
+        },
+        process.env.JWT_PASSWORD as string,
+        { 
+            expiresIn: process.env.JWT_EXPIRY ? parseInt(process.env.JWT_EXPIRY, 10) : undefined 
+        }
+    )
+
+    return res.status(200).json(
+        new ApiResponse(201, token, "User logged in Successfully")
+    )
     
 })
 
-app.post("/api/v1/content",(req, res) => {
+app.post("/api/v1/content", authMiddleware,  (req, res) => {
+    const {link, type} = req.body
 
 })
 
