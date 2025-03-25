@@ -8,6 +8,7 @@ import { ApiResponse } from './utlis/ApiResponse'
 import { Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
 import { authMiddleware } from './middlewares/auth.middleware'
+import { Content } from './models/content.models'
 
 
 dotenv.config({
@@ -31,8 +32,7 @@ app.post("/api/v1/signup", async(req: Request, res: Response): Promise<any> =>  
         $or: [{ username }, { email }]
     })
 
-    if(existedUser)
-        throw new ApiError(409, "User with this email and username already exists")
+    if(existedUser) throw new ApiError(409, "User with this email and username already exists")
 
     const hashedPassword = await bcrypt.hash(password, 10)
 
@@ -61,8 +61,7 @@ app.post("/api/v1/signin", async (req: Request, res: Response): Promise<any> => 
         $or: [{email}, {username}]
     })
 
-    if(!existedUser)
-        throw new ApiError(404, "User doesn't exists with these credentials")
+    if(!existedUser) throw new ApiError(404, "User doesn't exists with these credentials")
 
     const isMatch = await bcrypt.compare(password, existedUser.password);
     if (!isMatch) {
@@ -83,15 +82,31 @@ app.post("/api/v1/signin", async (req: Request, res: Response): Promise<any> => 
         new ApiResponse(201, token, "User logged in Successfully")
     )
     
-})
+})                      
 
-app.post("/api/v1/content", authMiddleware,  (req, res) => {
+app.post("/api/v1/content", authMiddleware,  async (req, res) => {
     const {link, type} = req.body
+
+    try {
+        await Content.create({
+            link,
+            type,
+            // @ts-ignore
+            userId: req.userId,
+            tags: []
+        })
+    
+        res.json({
+            message: "Content Added"
+        })
+    } catch (error) {
+        console.error("Content can't be added: ", error)
+    }
 
 })
 
 app.get("/api/v1/content",(req, res) => {
-
+    
 })
 
 app.delete("/api/v1/content",(req, res) => {
