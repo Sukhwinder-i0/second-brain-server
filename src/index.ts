@@ -9,6 +9,7 @@ import { Request, Response } from 'express'
 import jwt from 'jsonwebtoken'
 import { authMiddleware } from './middlewares/auth.middleware'
 import { Content } from './models/content.models'
+import { asyncHandler } from './utlis/AsyncHandler'
 
 
 dotenv.config({
@@ -19,9 +20,9 @@ const app = express()
 
 app.use(express.json());
 
-app.post("/api/v1/signup", async(req: Request, res: Response): Promise<any> =>  {
-    const {email, username, password} = req.body
+app.post("/api/v1/signup", asyncHandler ( async(req: Request, res: Response): Promise<any> =>  {
 
+    const {email, username, password} = req.body
     if(
         [username, password].some((field) => field?.trim() === "")
     ) {
@@ -32,10 +33,10 @@ app.post("/api/v1/signup", async(req: Request, res: Response): Promise<any> =>  
         $or: [{ username }, { email }]
     })
 
-    if(existedUser) throw new ApiError(409, "User with this email and username already exists")
+    if(existedUser) 
+        throw new ApiError(409, "User with this email and username already exists")
 
     const hashedPassword = await bcrypt.hash(password, 10)
-
 
     const newUser = await User.create({
         email,
@@ -52,17 +53,22 @@ app.post("/api/v1/signup", async(req: Request, res: Response): Promise<any> =>  
         new ApiResponse(200, createdUser, "User Registered Successfully")
     )
 
-})
+}))
 
-app.post("/api/v1/signin", async (req: Request, res: Response): Promise<any> => {
+app.post("/api/v1/signin", asyncHandler(async (req: Request, res: Response): Promise<any> => {
     const {email, username, password} = req.body
 
     const existedUser = await User.findOne({
         $or: [{email}, {username}]
     })
 
-    if(!existedUser) throw new ApiError(404, "User doesn't exists with these credentials")
+    if(!existedUser) {
+        if(!existedUser) {
+            throw new ApiError(404, "User doesn't exist with these credentials")
+        }
+    }
 
+       
     const isMatch = await bcrypt.compare(password, existedUser.password);
     if (!isMatch) {
         throw new ApiError(401, "Invalid credentials");
@@ -72,19 +78,19 @@ app.post("/api/v1/signin", async (req: Request, res: Response): Promise<any> => 
         { 
             id: existedUser._id 
         },
-        process.env.JWT_PASSWORD as string,
+        process.env.JWT_PASSWORD || "defaultSecret",
         { 
-            expiresIn: process.env.JWT_EXPIRY ? parseInt(process.env.JWT_EXPIRY, 10) : undefined 
-        }
+            expiresIn: process.env.JWT_EXPIRY || "1d" 
+        } as jwt.SignOptions
     )
 
     return res.status(200).json(
         new ApiResponse(201, token, "User logged in Successfully")
     )
     
-})                      
+}))                      
 
-app.post("/api/v1/content", authMiddleware,  async (req, res) => {
+app.post("/api/v1/content", authMiddleware, asyncHandler( async (req, res) => {
     const {link, type} = req.body
 
     try {
@@ -92,8 +98,9 @@ app.post("/api/v1/content", authMiddleware,  async (req, res) => {
             link,
             type,
             // @ts-ignore
-            userId: req.userId,
-            tags: []
+            userId?: req.userId,
+            tag: []
+            
         })
     
         res.json({
@@ -103,15 +110,44 @@ app.post("/api/v1/content", authMiddleware,  async (req, res) => {
         console.error("Content can't be added: ", error)
     }
 
-})
+}))
 
-app.get("/api/v1/content",(req, res) => {
+app.get("/api/v1/content", authMiddleware, asyncHandler( async (req, res) => {
+    //@ts-ignore
+    const userId = req.userId 
+    const content = await Content.find({
+        userId: userId
+    }).populate("userId", "username")
+
+    res.json({
+        content
+    })
+}))
+
+app.delete("/api/v1/content", authMiddleware, asyncHandler(async (req, res) => {
+    const { contentId } = req.body;
     
-})
+    // @ts-ignore
+    const userId = req.userId;  
 
-app.delete("/api/v1/content",(req, res) => {
+    if (!contentId) {
+        throw new ApiError(400, "Content ID is required");
+    }
 
-})
+    const deletedContent = await Content.deleteOne({
+        _id: contentId,         
+        userId                  
+    });
+
+    if (deletedContent.deletedCount === 0) {
+        throw new ApiError(404, "Content not found or unauthorized");
+    }
+
+    return res.status(200).json(
+        new ApiResponse(200, "Content deleted successfully")
+    );
+}));
+
 
 app.post("/api/v1/brain/share",(req, res) => {
 

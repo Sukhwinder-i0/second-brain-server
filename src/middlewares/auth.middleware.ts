@@ -18,14 +18,13 @@ export const authMiddleware = (
 
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        res.status(401).json({ message: "Authorization header missing or invalid format" });
+    if (!authHeader) {
+        res.status(401).json({ message: "Authorization header missing" });
         return;     
     }
-
-    
-
+  
     const jwtSecret = process.env.JWT_PASSWORD;
+
     if (!jwtSecret) {
         res.status(500).json({ message: "JWT secret is not configured" });
         return;      
