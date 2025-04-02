@@ -13,6 +13,7 @@ import { asyncHandler } from "./utlis/AsyncHandler";
 import { ShareLink } from "./models/link.models";
 import { generateRandom } from "./utlis/RandomString";
 import { Error } from "mongoose";
+import cors from "cors";
 
 dotenv.config({
   path: "./.env",
@@ -21,6 +22,7 @@ dotenv.config({
 const app = express();
 
 app.use(express.json());
+app.use(cors())
 
 dbConnect()
   .then(() => {
