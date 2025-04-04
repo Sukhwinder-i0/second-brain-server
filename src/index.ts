@@ -118,16 +118,15 @@ app.post(
 );
 
 app.post(
-  "/api/v1/content",
+  "/api/v1/content/add-content",
   authMiddleware,
   asyncHandler(async (req, res) => {
-    const { link, type } = req.body;
+    const { link, title } = req.body;
 
     try {
       await Content.create({
         link,
-        type,
-        // @ts-ignore
+        title,
         userId: req.userId,
         tag: [],
       });
@@ -191,7 +190,7 @@ app.post(
     const { share } = req.body;
     try {
       if (share) {
-        const  existingLink = await ShareLink.findOne({
+        const existingLink = await ShareLink.findOne({
           userId: req.userId
         })
 
@@ -216,6 +215,7 @@ app.post(
           userId: req.userId,
           share: false,
         });
+
         return res.json({
           message: "Removed Link"
         })

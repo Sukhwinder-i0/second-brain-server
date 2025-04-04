@@ -11,34 +11,35 @@ declare module "express" {
 }
 
 export const authMiddleware = (
-    req: Request, 
-    res: Response, 
+    req: Request,
+    res: Response,
     next: NextFunction
-): void | Promise<void> => { 
-
+): void => {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
-        res.status(401).json({ message: "Authorization header missing" });
-        return;     
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.status(401).json({ message: "Authorization header missing or malformed" });
+        return;
     }
-  
+
+    const token = authHeader.split(" ")[1]; // ✅ extract only the token
+
     const jwtSecret = process.env.JWT_PASSWORD;
 
     if (!jwtSecret) {
         res.status(500).json({ message: "JWT secret is not configured" });
-        return;      
+        return;
     }
 
     try {
-        const decoded = jwt.verify(authHeader, jwtSecret) as JwtPayload;
+        const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
 
         if (!decoded || typeof decoded !== "object" || !decoded.id) {
             res.status(401).json({ message: "Invalid token" });
-            return; 
+            return;
         }
 
-        req.userId = decoded.id;    // Attach `userId` to the request
+        req.userId = decoded.id;
         next();
     } catch (error) {
         console.error("JWT Verification Error:", error);
